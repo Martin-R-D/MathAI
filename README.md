@@ -6,8 +6,11 @@ and an independent symbolic verifier will check each step.
 
 MathAI implements an exact polynomial environment with explicit identities and
 selective transformations, bounded breadth-first proof search, tests, and
-scripted and automatic command-line demonstrations. There is no neural model, training pipeline, heuristic search,
-web interface, or Google Colab integration.
+scripted and automatic command-line demonstrations. The public `ai` package
+now provides a Transformer candidate-action scorer and inference loading;
+generators, datasets, training tools and the training notebook are maintained
+outside this public repository. No trained weights are included. There is no
+model-guided search or web interface yet.
 
 ## Setup and commands
 
@@ -20,6 +23,12 @@ python -m mathai.demo
 python -m mathai.search_demo
 python -m pytest -q
 ```
+
+The model tests require a supported standard CPython/PyTorch build; MinGW
+Python cannot use the ordinary PyTorch wheels. The symbolic `mathai` package
+and demos continue to run independently of PyTorch. See [model documentation](ai/MODEL.md)
+for the 1,089,409-parameter architecture, fixed tokenizer, artifact format,
+inference example and current limitations. Training data is not released.
 
 An isolated environment is recommended: create it with `python -m venv .venv`.
 On standard Windows Python, activate it with
@@ -469,8 +478,8 @@ All metadata is retained in the reconstructed proof for exact replay. Enabling
 `collect` can yield a shorter proof because that existing rule can group both
 pairs at once; these are different experiments, not different BFS semantics.
 
-BFS will remain useful as a deterministic baseline and a source of shortest
-verified trajectories on small tasks when learned guidance is added. The next
-milestone is generating training examples from these search results and
-training a small Transformer to rank available actions. This implementation
-does not yet generate a dataset or train a model.
+BFS remains a deterministic baseline and a source of verified trajectories.
+The first ranking model and inference interfaces are implemented; private
+generation and training tools are kept outside the public repository. The next
+milestone is full model training and end-to-end guided-search evaluation. A
+successful ranking smoke check alone does not demonstrate improved proof search.
