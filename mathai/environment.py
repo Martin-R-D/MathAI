@@ -6,6 +6,7 @@ All rebuilding uses SymPy's normal evaluation, never automatic expansion.
 """
 
 from dataclasses import dataclass
+from collections.abc import Iterator
 from functools import reduce
 from math import gcd, lcm
 
@@ -165,9 +166,13 @@ def apply_action(state: State, action: Action) -> tuple[State, ProofStep]:
     return State(after, state.target), ProofStep(action, state.expression, after)
 
 
-def enumerate_actions(state: State) -> tuple[Action, ...]:
-    """Preorder paths, then RULES order; keep the first of duplicate successors."""
-    actions, seen = [], set()
+def iter_actions(state: State) -> Iterator[Action]:
+    """Yield actions lazily in preorder, keeping the first of duplicate successors.
+
+    Like enumerate_actions, candidate testing uses verified transitions. One
+    iterator advance may test multiple inapplicable or duplicate candidates.
+    """
+    seen = set()
 
     def visit(node, path):
         for rule in RULES:
@@ -178,9 +183,13 @@ def enumerate_actions(state: State) -> tuple[Action, ...]:
                 continue
             if successor.expression not in seen:
                 seen.add(successor.expression)
-                actions.append(action)
+                yield action
         for index, child in enumerate(node.args):
-            visit(child, path + (index,))
+            yield from visit(child, path + (index,))
 
-    visit(state.expression, ())
-    return tuple(actions)
+    yield from visit(state.expression, ())
+
+
+def enumerate_actions(state: State) -> tuple[Action, ...]:
+    """Preorder paths, then RULES order; keep the first of duplicate successors."""
+    return tuple(iter_actions(state))
