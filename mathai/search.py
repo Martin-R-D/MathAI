@@ -8,7 +8,7 @@ from time import monotonic
 
 import sympy as sp
 
-from .environment import ProofStep, State, apply_action, is_solved, iter_actions
+from .environment import ProofStep, State, apply_action, is_solved, iter_actions, normalize_rules
 
 
 class SearchStatus(str, Enum):
@@ -79,7 +79,7 @@ def expression_size(expression: sp.Expr) -> int:
     return sum(1 for _ in sp.preorder_traversal(expression))
 
 
-def breadth_first_search(initial: State, limits: SearchLimits | None = None) -> SearchResult:
+def breadth_first_search(initial: State, limits: SearchLimits | None = None, *, rules=None) -> SearchResult:
     """Find a shortest proof in the size-pruned graph, within resource limits.
 
     See README for exact budget boundaries and counter definitions. Exceptions
@@ -89,6 +89,7 @@ def breadth_first_search(initial: State, limits: SearchLimits | None = None) -> 
         limits = SearchLimits()
     if not isinstance(limits, SearchLimits):
         raise TypeError("limits must be a SearchLimits instance.")
+    enabled = normalize_rules(rules)
     started = monotonic()
     nodes: dict[sp.Expr, _Node] = {}
     queue = deque()
@@ -135,7 +136,7 @@ def breadth_first_search(initial: State, limits: SearchLimits | None = None) -> 
             return finish(SearchStatus.TIMEOUT)
         parent_key = queue.popleft()
         parent = nodes[parent_key]
-        actions = iter(iter_actions(parent.state))
+        actions = iter(iter_actions(parent.state) if rules is None else iter_actions(parent.state, enabled))
         expanded += 1
         while True:
             if timed_out():

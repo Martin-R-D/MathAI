@@ -149,9 +149,12 @@ def test_full_budget_does_not_prevent_proving_exhaustion(graph):
 
 def test_equivalent_unreachable_target_is_genuine_exhaustion_at_depth_zero():
     initial = State(x**2-y**2, (x-y)*(x+y))
+    # Preserve this exhaustion regression for the original rule graph. The new
+    # explicit difference-of-squares rule makes this task reachable otherwise.
+    original_rules = ("expand_mul", "expand_power", "factor_common", "collect")
     assert equivalent(initial.expression, initial.target)
-    assert enumerate_actions(initial) == ()
-    result = breadth_first_search(initial, SearchLimits(max_depth=0, max_states=1))
+    assert enumerate_actions(initial, rules=original_rules) == ()
+    result = breadth_first_search(initial, SearchLimits(max_depth=0, max_states=1), rules=original_rules)
     assert result.status == SearchStatus.EXHAUSTED
     assert result.admitted_states == result.expanded_states == 1
     assert result.attempted_transitions == 0

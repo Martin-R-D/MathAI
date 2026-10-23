@@ -4,7 +4,7 @@ import argparse
 
 import sympy as sp
 
-from .environment import State, UnsupportedExpression, parse_expression
+from .environment import RULES, State, UnsupportedExpression, parse_expression
 from .search import SearchLimits, SearchStatus, breadth_first_search
 
 
@@ -13,6 +13,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", help="starting polynomial (requires --target)")
     parser.add_argument("--target", help="target polynomial (requires --start)")
+    parser.add_argument("--rules", nargs="+", choices=RULES,
+                        help="allowed rules (default: all; canonical rule order is preserved)")
     parser.add_argument("--max-depth", type=int, default=defaults.max_depth)
     parser.add_argument("--max-states", type=int, default=defaults.max_states)
     parser.add_argument("--max-expression-size", type=int, default=defaults.max_expression_size)
@@ -39,12 +41,13 @@ def main(argv=None):
             except UnsupportedExpression as error:
                 parser.error(f"--{name}: {error}")
         initial = State(*expressions)
-    result = breadth_first_search(initial, limits)
+    result = breadth_first_search(initial, limits, rules=args.rules)
     print(f"Start: {initial.expression}")
     print(f"Target: {initial.target}")
     print(f"Search status: {result.status.value}")
     for index, step in enumerate(result.proof, 1):
-        print(f"{index}. {step.action.rule} at {step.action.path}: {step.after}")
+        selection = f" selection={step.action.selection}" if step.action.selection else ""
+        print(f"{index}. {step.action.rule} at {step.action.path}{selection}: {step.after}")
         print(f"   Verified: {step.verified}")
     print(f"Proof length: {len(result.proof)}")
     print(f"Admitted states: {result.admitted_states}")
