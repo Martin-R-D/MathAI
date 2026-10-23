@@ -45,7 +45,8 @@ assert step.verified
 `State(expression, target)`, `Action(rule, path)`, and
 `ProofStep(action, before, after)` are frozen dataclasses. State construction
 validates both expressions and rebuilds them with normal SymPy evaluation.
-Use SymPy expressions or Python integers as inputs; strings are not parsed.
+Use SymPy expressions or Python integers as state inputs. For text, first call
+`parse_expression(text)` to construct a validated SymPy expression.
 Applying an action returns a new state and leaves the old state intact.
 
 A path is a tuple of indices into SymPy's `expr.args`: `()` selects the root,
@@ -120,7 +121,8 @@ example, an already evaluated `0*sp.sin(x)` is simply `0`). Paths and exact
 printed traces depend on the SymPy representation, rather than on the user's
 original spelling. Large degrees and expression trees can be expensive. Search
 has admission limits, but individual SymPy operations have no resource sandbox.
-There is no untrusted-expression parser.
+The CLI's restricted text parser accepts only the polynomial syntax described
+below; parsing and construction are not governed by the search resource limits.
 
 ## Actual demonstration trace
 
@@ -270,6 +272,35 @@ python -m mathai.search_demo --max-depth 4 --max-states 100 --max-expression-siz
 python -m mathai.search_demo --max-depth 0
 python -m pytest -q
 ```
+
+Supply both `--start` and `--target` to search a custom problem. Omitting both
+keeps the default identity; supplying just one is an argparse error. Quote each
+expression so your terminal passes it as one argument:
+
+```console
+python -m mathai.search_demo --start "(x + y)**2" --target "x**2 + 2*x*y + y**2" --max-depth 4 --max-states 100 --timeout-seconds 5
+python -m mathai.search_demo --start "(x+y)**2/3" --target "x**2/3+2*x*y/3+y**2/3"
+python -m mathai.search_demo --start "(x+y)**2" --target "x**2+2*x*y+y**2" --max-depth 0
+```
+
+The first command discovers a verified one-step square expansion; the second
+uses exact rational coefficients. The third reports incomplete exploration
+because of the depth limit. All existing limit options apply to custom tasks.
+
+`parse_expression` reads an AST and explicitly constructs allowed operations;
+it never evaluates source code or uses SymPy's eval-based text parsers. It
+supports identifier symbol names, integer literals, parentheses, unary `+`/`-`,
+addition, subtraction, multiplication, `/` for rational coefficients, and `**`
+for nonnegative integer powers. Names such as `pi` and `I` are ordinary symbols,
+not predefined constants. Multiplication must be explicit (`2*x`, not `2x`).
+Denominators must be nonzero rational constants, and exponents must be
+nonnegative integer constants; constant arithmetic such as `**(1+1)` is allowed.
+Symbol-containing denominators or exponents are rejected even if symbols would
+cancel. Calls (including `Rational(...)`), attributes, subscripts, floats,
+inequalities, and other unsupported syntax produce an argparse error identifying
+`--start` or `--target`. In this text syntax, `1/3` is exact; in Python API code,
+continue to use `sp.Rational(1, 3)` instead of Python's floating-point `1/3`.
+Normal SymPy canonicalization still applies after parsing.
 
 An actual default run with SymPy 1.14.0 produced the following (the elapsed-time
 line is omitted because it varies):

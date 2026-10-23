@@ -1,28 +1,44 @@
-"""Automatically discover a proof of the default identity with bounded BFS."""
+"""Discover a polynomial proof with bounded BFS (defaults to the demonstration identity)."""
 
 import argparse
 
 import sympy as sp
 
-from .environment import State
+from .environment import State, UnsupportedExpression, parse_expression
 from .search import SearchLimits, SearchStatus, breadth_first_search
 
 
 def main(argv=None):
     defaults = SearchLimits()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--start", help="starting polynomial (requires --target)")
+    parser.add_argument("--target", help="target polynomial (requires --start)")
     parser.add_argument("--max-depth", type=int, default=defaults.max_depth)
     parser.add_argument("--max-states", type=int, default=defaults.max_states)
     parser.add_argument("--max-expression-size", type=int, default=defaults.max_expression_size)
     parser.add_argument("--timeout-seconds", type=float, default=defaults.timeout_seconds)
     args = parser.parse_args(argv)
+    if (args.start is None) != (args.target is None):
+        parser.error("--start and --target must be supplied together.")
     try:
-        limits = SearchLimits(**vars(args))
+        limits = SearchLimits(
+            max_depth=args.max_depth, max_states=args.max_states,
+            max_expression_size=args.max_expression_size, timeout_seconds=args.timeout_seconds,
+        )
     except ValueError as error:
         parser.error(str(error))
 
-    x, y = sp.symbols("x y")
-    initial = State((x+y)**2 - (x-y)**2, 4*x*y)
+    if args.start is None:
+        x, y = sp.symbols("x y")
+        initial = State((x+y)**2 - (x-y)**2, 4*x*y)
+    else:
+        expressions = []
+        for name in ("start", "target"):
+            try:
+                expressions.append(parse_expression(getattr(args, name)))
+            except UnsupportedExpression as error:
+                parser.error(f"--{name}: {error}")
+        initial = State(*expressions)
     result = breadth_first_search(initial, limits)
     print(f"Start: {initial.expression}")
     print(f"Target: {initial.target}")

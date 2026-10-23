@@ -3,6 +3,7 @@
 from .environment import (
     Action, InvalidAction, ProofStep, State, UnsupportedExpression,
     VerificationError, apply_action, equivalent, enumerate_actions, is_solved, iter_actions,
+    parse_expression,
 )
 from .search import (
     SearchLimit, SearchLimits, SearchResult, SearchStatus, breadth_first_search, expression_size,
@@ -11,6 +12,6 @@ from .search import (
 __all__ = [
     "Action", "InvalidAction", "ProofStep", "State", "UnsupportedExpression",
     "VerificationError", "apply_action", "equivalent", "enumerate_actions", "is_solved",
-    "iter_actions", "SearchLimit", "SearchLimits", "SearchResult", "SearchStatus",
+    "iter_actions", "parse_expression", "SearchLimit", "SearchLimits", "SearchResult", "SearchStatus",
     "breadth_first_search", "expression_size",
 ]

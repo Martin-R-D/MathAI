@@ -5,6 +5,8 @@ which they were generated, since rebuilding a parent may reorder its children.
 All rebuilding uses SymPy's normal evaluation, never automatic expansion.
 """
 
+import ast
+
 from dataclasses import dataclass
 from collections.abc import Iterator
 from functools import reduce
@@ -50,6 +52,64 @@ def _canonical(expression: sp.Expr | int) -> sp.Expr:
         raise UnsupportedExpression(f"Unsupported polynomial node: {node}")
 
     return visit(expression)
+
+
+def parse_expression(text: str) -> sp.Expr:
+    """Parse polynomial text without evaluating Python or SymPy source code.
+
+    Only integer literals, symbol names, arithmetic, and parentheses are
+    accepted. Division requires a nonzero rational constant denominator;
+    powers require a nonnegative integer constant exponent. Constant arithmetic
+    is allowed in denominators/exponents, but symbol-containing syntax is not,
+    even if it would cancel. The resulting tree uses normal state conventions.
+    """
+    if not isinstance(text, str):
+        raise UnsupportedExpression("Expression input must be text.")
+
+    def constant_part(node, purpose):
+        if any(isinstance(part, ast.Name) for part in ast.walk(node)):
+            raise UnsupportedExpression(f"{purpose} must not contain symbols.")
+        return convert(node)
+
+    def convert(node):
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            return sp.Integer(node.value)
+        if isinstance(node, ast.Name):
+            return sp.Symbol(node.id)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value = convert(node.operand)
+            return value if isinstance(node.op, ast.UAdd) else -value
+        if isinstance(node, ast.BinOp):
+            left = convert(node.left)
+            if isinstance(node.op, ast.Div):
+                right = constant_part(node.right, "Denominators")
+                if not isinstance(right, sp.Rational) or right == 0:
+                    raise UnsupportedExpression("Denominators must be nonzero rational constants.")
+                return left / right
+            if isinstance(node.op, ast.Pow):
+                right = constant_part(node.right, "Exponents")
+                if not isinstance(right, sp.Integer) or right < 0:
+                    raise UnsupportedExpression("Powers require nonnegative integer exponents.")
+                return left ** right
+            right = convert(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+        raise UnsupportedExpression(
+            "Use only symbols, integers, parentheses, +, -, *, / for rational "
+            "coefficients, and ** for nonnegative integer powers."
+        )
+
+    try:
+        tree = ast.parse(text.strip(), mode="eval")
+        return _canonical(convert(tree.body))
+    except SyntaxError as error:
+        raise UnsupportedExpression(f"Invalid expression syntax: {error.msg}.") from None
+    except RecursionError:
+        raise UnsupportedExpression("Expression nesting is too deep.") from None
 
 
 @dataclass(frozen=True)
